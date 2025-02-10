@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NUSearch Research Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4E2A84;
+            --primary-light: #836EAA;
+            --primary-dark: #341C59;
+            --background-color: #F9FAFB;
+            --surface-color: #FFFFFF;
+            --text-primary: #111827;
+            --text-secondary: #4B5563;
+            --chat-bubble-user: #F3E8FF;
+            --chat-bubble-assistant: var(--surface-color);
+            --border-color: #E5E7EB;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.4;
+            background-color: var(--background-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: var(--text-primary);
+        }
+
+        header {
+            background-color: var(--surface-color);
+            color: var(--text-primary);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.025em;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 1rem;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-light) var(--background-color);
+            -webkit-transform: translateZ(0);
+            backface-visibility: hidden;
+            perspective: 1000;
+        }
+
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-container::-webkit-scrollbar-track {
+            background: var(--background-color);
+        }
+
+        .chat-container::-webkit-scrollbar-thumb {
+            background-color: var(--primary-light);
+            border-radius: 20px;
+            border: 2px solid var(--background-color);
+        }
+
+        .chat-message {
+            margin-bottom: 0.75rem;
+            max-width: 85%;
+            opacity: 1;
+            transform: translateY(5px);
+            animation: messageAppear 0.3s ease forwards;
+            will-change: transform;
+            backface-visibility: hidden;
+        }
+
+        @keyframes messageAppear {
+            from {
+                transform: translateY(10px);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .user-message {
+            margin-left: auto;
+        }
+
+        .assistant-message {
+            margin-right: auto;
+        }
+
+        .message-bubble {
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow 0.2s ease;
+        }
+
+        .message-bubble:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .user-message .message-bubble {
+            background-color: var(--chat-bubble-user);
+            border-bottom-right-radius: 0.25rem;
+            color: var(--primary-dark);
+        }
+
+        .assistant-message .message-bubble {
+            background-color: var(--chat-bubble-assistant);
+            border-bottom-left-radius: 0.25rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .input-container {
+            padding: 1.25rem;
+            background-color: var(--surface-color);
+            border-top: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .input-form {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 0.875rem 1.25rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            color: var(--text-primary);
+            background-color: var(--background-color);
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(131, 110, 170, 0.1);
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--text-secondary);
+        }
+
+        button {
+            padding: 0.875rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button svg {
+            width: 1rem;
+            height: 1rem;
+            transition: transform 0.2s ease;
+        }
+
+        button:hover svg {
+            transform: translateX(2px);
+        }
+
+        .message-content {
+            font-size: 0.9375rem;
+            line-height: 1.5;
+        }
+
+        /* Markdown Styling */
+        .message-content h2 {
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: -0.025em;
+        }
+
+        .message-content h3 {
+            margin-top: 0.75rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-dark);
+            font-size: 1.125rem;
+            font-weight: 600;
+            letter-spacing: -0.025em;
+        }
+
+        .message-content h4 {
+            margin-top: 0.75rem;
+            margin-bottom: 0.375rem;
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .message-content ul, 
+        .message-content ol {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .message-content li {
+            margin-bottom: 0.25rem;
+        }
+
+        .message-content p {
+            margin-bottom: 0.5rem;
+        }
+
+        .message-content a {
+            color: var(--primary-color);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .message-content a:hover {
+            border-bottom-color: var(--primary-color);
+        }
+
+        .message-content code {
+            background-color: var(--background-color);
+            padding: 0.2em 0.4em;
+            border-radius: 0.25rem;
+            font-size: 0.875em;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        .message-content pre {
+            background-color: var(--background-color);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+        }
+
+        .message-content pre code {
+            background-color: transparent;
+            padding: 0;
+            font-size: 0.875rem;
+            line-height: 1.7;
+        }
+
+        .message-content blockquote {
+            border-left: 3px solid var(--primary-light);
+            padding-left: 1rem;
+            margin: 0.75rem 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .message-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin: 0.75rem 0;
+        }
+
+        .message-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.75rem 0;
+        }
+
+        .message-content th,
+        .message-content td {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            text-align: left;
+        }
+
+        .message-content th {
+            background-color: var(--background-color);
+            font-weight: 600;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 640px) {
+            .chat-container {
+                padding: 0.75rem 0.5rem;
+            }
+            
+            .chat-message {
+                max-width: 90%;
+            }
+            
+            .message-bubble {
+                padding: 0.625rem 0.875rem;
+            }
+            
+            .input-container {
+                padding: 1rem 0.75rem;
+            }
+            
+            button {
+                padding: 0.875rem 1.25rem;
+            }
+            
+            .message-content {
+                font-size: 0.875rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <script src="https://www.unpkg.com/@samvera/clover-iiif@latest/dist/web-components/index.umd.js"></script>
+    <header>
+        <h1>NUSearch Research Assistant</h1>
+    </header>
+
+    <div class="chat-container" id="chat-container"></div>
+
+    <div class="input-container">
+        <form class="input-form" id="chat-form">
+            <input type="text" id="user-input" placeholder="Type your research query here..." autocomplete="off">
+            <button type="submit">
+                Send
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        let socket = null;
+        let currentMessageContent = '';
+        let currentMessageElement = null;
+
+        // Configure marked.js options
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        function connect() {
+            socket = new WebSocket('ws://' + window.location.host + '/ws/chat/');
+
+            socket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                
+                if (data.ref) {
+                    console.log('Connected with ref:', data.ref);
+                    return;
+                }
+
+                if (data.error) {
+                    console.error('Error:', data.error);
+                    return;
+                }
+
+                if (data.callback === "on_tool_start") {
+                    if (!currentMessageElement) {
+                        currentMessageElement = createMessageElement('assistant');
+                        currentMessageContent = '';
+                    }
+                    currentMessageContent += data.response;
+                }
+
+                if (data.callback === "on_tool_end") {
+                    if (!currentMessageElement) {
+                        currentMessageElement = createMessageElement('assistant');
+                        currentMessageContent = '';
+                    }
+                    currentMessageContent += data.response;
+                }
+
+                if (data.callback === 'on_llm_new_token') {
+                    if (!currentMessageElement) {
+                        currentMessageElement = createMessageElement('assistant');
+                        currentMessageContent = '';
+                    }
+                    handleToken(data.response);
+                }
+                
+                if (data.type === "nul_search") {
+                    const messageDiv = createMessageElement('assistant');
+                    data.message.forEach(function(item) {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.innerHTML = `
+                            <h2>${item.title}</h2>
+                            <p>${item.creators}</p>
+                            <p>${item.publisher}, ${item.pub_year}</p>
+                            <p>${item.container}</p>
+                            <a href="${item.link}" target="_blank">View on NUSearch</a>
+                        `;
+                        messageDiv.querySelector('.message-content').appendChild(itemDiv);
+                    });
+                } else if (data.type === "open_alex") {
+                    const messageDiv = createMessageElement('assistant');
+                    data.message.forEach(function(item) {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.innerHTML = `
+                            <h2>${item.title}</h2>
+                            <p>${item.authors}</p>
+                            <p>${item.publication_year}</p>
+                            <p>${item.language}</p>
+                            <a href="${item.link}" target="_blank">View on OpenAlex</a>
+                        `;
+                        messageDiv.querySelector('.message-content').appendChild(itemDiv);
+                    });
+                } else if (data.type === "digital_collections") {
+                    const messageDiv = createMessageElement('assistant');
+                    data.message.forEach(function(item) {
+                        console.log(`Creating clover element for ${item}`);
+                        const cloverViewer = document.createElement('clover-viewer');
+                        cloverViewer.id = item;
+                        messageDiv.querySelector('.message-content').appendChild(cloverViewer);
+                    });
+                }
+            };
+
+            socket.onclose = function(e) {
+                console.log('WebSocket connection closed');
+                setTimeout(connect, 1000);
+            };
+        }
+
+        function handleToken(token) {
+            if (!currentMessageElement) {
+                return;
+            }
+            
+            currentMessageContent += token;
+            
+            // Parse the accumulated content as Markdown
+            try {
+                const htmlContent = marked.parse(currentMessageContent);
+                currentMessageElement.querySelector('.message-content').innerHTML = htmlContent;
+            } catch (error) {
+                console.error('Markdown parsing error:', error);
+                // Fallback to plain text if Markdown parsing fails
+                currentMessageElement.querySelector('.message-content').textContent = currentMessageContent;
+            }
+        }
+
+        function createMessageElement(role) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${role}-message`;
+            messageDiv.innerHTML = `
+                <div class="message-bubble">
+                    <div class="message-content"></div>
+                </div>
+            `;
+            document.getElementById('chat-container').appendChild(messageDiv);
+            return messageDiv;
+        }
+
+        function sendMessage(message) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    query: message
+                }));
+            }
+        }
+
+        document.getElementById('chat-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            
+            if (message) {
+                // Create user message
+                const messageDiv = createMessageElement('user');
+                messageDiv.querySelector('.message-content').textContent = message;
+                
+                // Reset for new assistant message
+                currentMessageElement = null;
+                currentMessageContent = '';
+                
+                // Send message
+                sendMessage(message);
+                
+                // Clear input
+                input.value = '';
+
+                // Auto-scroll
+                const chatContainer = document.getElementById('chat-container');
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        });
+
+        // Connect when page loads
+        connect();
+    </script>
+</body>
+</html>

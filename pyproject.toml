@@ -1,0 +1,27 @@
+[project]
+name = "nusearch"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Brendan Quinn", email = "brendan-quinn@northwestern.edu" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "channels>=4.2.0",
+    "django>=5.1.6",
+    "langchain-aws>=0.2.12",
+    "langgraph>=0.2.70",
+    "pyalex>=0.15.1",
+    "uvicorn[standard]>=0.34.0",
+]
+packages = ["nusearch"]
+include = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+src-layout = true
+
+[project.scripts]
+nusearch="manage:main"
