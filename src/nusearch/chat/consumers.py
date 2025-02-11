@@ -3,8 +3,8 @@ import json
 import logging
 import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
-from chat.agent import Agent
-from chat.callbacks.socket import SocketCallbackHandler
+from nusearch.chat.agent import Agent
+from nusearch.chat.callbacks.socket import SocketCallbackHandler
 
 logger = logging.getLogger(__name__)
 

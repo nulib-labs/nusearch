@@ -7,7 +7,7 @@ from pyalex import Works
 from typing import List, Optional
 from langchain_core.callbacks import BaseCallbackHandler
 from channels.generic.websocket import AsyncWebsocketConsumer
-from chat.parser import parse_nul_search, parse_digital_collections, parse_open_alex
+from nusearch.chat.parser import parse_nul_search, parse_digital_collections, parse_open_alex
 
 PRIMO_URL = "https://search.library.northwestern.edu/primaws/rest/pub/pnxs"
 DC_URL = "https://api.dc.library.northwestern.edu/api/v2/search"

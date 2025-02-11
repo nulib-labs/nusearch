@@ -54,6 +54,7 @@
             font-size: 1.5rem;
             font-weight: 600;
             background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: -0.025em;
@@ -68,6 +69,7 @@
             width: 100%;
             scrollbar-width: thin;
             scrollbar-color: var(--primary-light) var(--background-color);
+            transform: translateZ(0);
             -webkit-transform: translateZ(0);
             backface-visibility: hidden;
             perspective: 1000;
@@ -119,6 +121,7 @@
             border-radius: 1rem;
             box-shadow: var(--shadow-sm);
             transition: box-shadow 0.2s ease;
+            position: relative;
         }
 
         .message-bubble:hover {
@@ -319,6 +322,38 @@
             font-weight: 600;
         }
 
+        /* Copy button styles */
+        .copy-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            opacity: 0;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .message-bubble:hover .copy-button {
+            opacity: 1;
+        }
+
+        .copy-button:hover {
+            background-color: var(--background-color);
+            color: var(--primary-color);
+            transform: none;
+        }
+
+        .copy-button.copied {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
         /* Responsive Design */
         @media (max-width: 640px) {
             .chat-container {
@@ -350,7 +385,7 @@
 <body>
     <script src="https://www.unpkg.com/@samvera/clover-iiif@latest/dist/web-components/index.umd.js"></script>
     <header>
-        <h1>NUSearch Research Assistant</h1>
+        <h1>NUSearch Assistant</h1>
     </header>
 
     <div class="chat-container" id="chat-container"></div>
@@ -372,6 +407,8 @@
         let socket = null;
         let currentMessageContent = '';
         let currentMessageElement = null;
+        let startMessageElement, tokenMessageElement;
+        let startMessageContent = '', tokenMessageContent = '';
 
         // Configure marked.js options
         marked.setOptions({
@@ -395,39 +432,30 @@
                     return;
                 }
 
-                if (data.callback === "on_tool_start") {
-                    if (!currentMessageElement) {
-                        currentMessageElement = createMessageElement('assistant');
-                        currentMessageContent = '';
-                    }
-                    currentMessageContent += data.response;
-                }
-
-                if (data.callback === "on_tool_end") {
-                    if (!currentMessageElement) {
-                        currentMessageElement = createMessageElement('assistant');
-                        currentMessageContent = '';
-                    }
-                    currentMessageContent += data.response;
-                }
-
                 if (data.callback === 'on_llm_new_token') {
-                    if (!currentMessageElement) {
-                        currentMessageElement = createMessageElement('assistant');
-                        currentMessageContent = '';
+                    if (!tokenMessageElement) {
+                        tokenMessageElement = createMessageElement('assistant');
+                        tokenMessageContent = '';
                     }
-                    handleToken(data.response);
+                    tokenMessageContent += data.response;
+                    try {
+                        const htmlContent = marked.parse(tokenMessageContent);
+                        tokenMessageElement.querySelector('.message-content').innerHTML = htmlContent;
+                    } catch (error) {
+                        console.error('Markdown parsing error:', error);
+                        tokenMessageElement.querySelector('.message-content').textContent = tokenMessageContent;
+                    }
                 }
-                
+
                 if (data.type === "nul_search") {
                     const messageDiv = createMessageElement('assistant');
                     data.message.forEach(function(item) {
                         const itemDiv = document.createElement('div');
                         itemDiv.innerHTML = `
                             <h2>${item.title}</h2>
-                            <p>${item.creators}</p>
-                            <p>${item.publisher}, ${item.pub_year}</p>
-                            <p>${item.container}</p>
+                            ${item.creators ? `<p>${item.creators}</p>` : ''}
+                            ${(item.publisher || item.pub_year) ? `<p>${item.publisher || ''}${item.publisher && item.pub_year ? ', ' : ''}${item.pub_year || ''}</p>` : ''}
+                            ${item.container ? `<p>${item.container}</p>` : ''}
                             <a href="${item.link}" target="_blank">View on NUSearch</a>
                         `;
                         messageDiv.querySelector('.message-content').appendChild(itemDiv);
@@ -448,7 +476,6 @@
                 } else if (data.type === "digital_collections") {
                     const messageDiv = createMessageElement('assistant');
                     data.message.forEach(function(item) {
-                        console.log(`Creating clover element for ${item}`);
                         const cloverViewer = document.createElement('clover-viewer');
                         cloverViewer.id = item;
                         messageDiv.querySelector('.message-content').appendChild(cloverViewer);
@@ -462,34 +489,31 @@
             };
         }
 
-        function handleToken(token) {
-            if (!currentMessageElement) {
-                return;
-            }
-            
-            currentMessageContent += token;
-            
-            // Parse the accumulated content as Markdown
-            try {
-                const htmlContent = marked.parse(currentMessageContent);
-                currentMessageElement.querySelector('.message-content').innerHTML = htmlContent;
-            } catch (error) {
-                console.error('Markdown parsing error:', error);
-                // Fallback to plain text if Markdown parsing fails
-                currentMessageElement.querySelector('.message-content').textContent = currentMessageContent;
-            }
-        }
-
         function createMessageElement(role) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `chat-message ${role}-message`;
             messageDiv.innerHTML = `
                 <div class="message-bubble">
+                    <button class="copy-button" onclick="copyContent(this)">Copy</button>
                     <div class="message-content"></div>
                 </div>
             `;
             document.getElementById('chat-container').appendChild(messageDiv);
             return messageDiv;
+        }
+
+        function copyContent(button) {
+            const content = button.nextElementSibling.textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
         }
 
         function sendMessage(message) {
@@ -510,9 +534,11 @@
                 const messageDiv = createMessageElement('user');
                 messageDiv.querySelector('.message-content').textContent = message;
                 
-                // Reset for new assistant message
-                currentMessageElement = null;
-                currentMessageContent = '';
+                // Reset all message elements and content
+                startMessageElement = null;
+                tokenMessageElement = null;
+                startMessageContent = '';
+                tokenMessageContent = '';
                 
                 // Send message
                 sendMessage(message);
