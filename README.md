@@ -2,6 +2,8 @@
 
 An AI Research Agent for Northwestern University Libraries.
 
+![nusearch](nusearch.gif)
+
 ## Installation
 
 ```bash
